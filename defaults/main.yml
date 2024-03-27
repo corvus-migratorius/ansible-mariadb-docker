@@ -1,0 +1,3 @@
+---
+# defaults file for mariadb_docker
+mariadb_version: "11.3.2-jammy"

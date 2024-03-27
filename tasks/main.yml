@@ -1,0 +1,125 @@
+---
+# tasks file for mariadb_docker
+
+- name: "Get MariaDB root password"
+  tags: [ mariadb-docker ]
+  ansible.builtin.include_vars:
+    file: "{{ mariadb_root_pw_path }}"
+
+- name: "Get MariaDB database configuration"
+  tags: [ mariadb-docker ]
+  ansible.builtin.include_vars:
+    file: "{{ mariadb_databases_path }}"
+
+- name: "Get user configuration"
+  tags: [ mariadb-docker ]
+  ansible.builtin.include_vars:
+    file: "{{ mariadb_users_path }}"
+
+- name: "Install MySQL client"
+  tags: [ mariadb-docker ]
+  ansible.builtin.apt:
+    name: [mysql-client]
+    state: present
+    cache_valid_time: 600
+
+- name: "Install Python connector for MariaDB"
+  tags: [ mariadb-docker ]
+  ansible.builtin.apt:
+    name: [python3-pymysql]
+    state: present
+    cache_valid_time: 600
+
+- name: "Create project directory"
+  tags: [ mariadb-docker ]
+  ansible.builtin.file:
+    path: "{{ mariadb_project_path }}"
+    state: directory
+    owner: "{{ mariadb_project_owner }}"
+    group: "{{ mariadb_project_group }}"
+    mode: "0755"
+
+- name: "Template Compose file"
+  tags: [ mariadb-docker ]
+  ansible.builtin.template:
+    src: docker-compose.yaml.j2
+    dest: "{{ mariadb_project_path }}/docker-compose.yaml"
+    owner: "{{ mariadb_project_owner }}"
+    group: "{{ mariadb_project_group }}"
+    mode: "0644"
+
+- name: "Deploy | check Docker daemon status"
+  tags: [ mariadb-docker ]
+  ansible.builtin.systemd:
+    name: docker
+  register: docker_service_status
+  failed_when: docker_service_status.status.ActiveState != "active"
+
+- name: "Deploy | check that Docker Compose is available"
+  tags: [ mariadb-docker ]
+  changed_when: false
+  ansible.builtin.command:
+    cmd: "docker compose version"
+
+- name: "Deploy MariaDB via the Compose file"
+  tags: [ mariadb-docker ]
+  community.docker.docker_compose_v2:
+    project_src: "{{ mariadb_project_path }}"
+    files:
+      - docker-compose.yaml
+    tls_hostname: localhost
+    state: present
+
+- name: "Check that MariaDB server responds with its version info"
+  tags: [ mariadb-docker ]
+  retries: 5
+  delay: 3
+  register: mariadb_installed_info
+  community.mysql.mysql_info:
+    login_host: 127.0.0.1
+    login_user: "root"
+    login_password: "{{ mariadb_root_pw }}"
+    filter: "version"
+
+- name: "Display installed MariaDB version"
+  tags: [ mariadb-docker ]
+  ansible.builtin.debug:
+    var: mariadb_installed_info.version.full
+
+- name: "Create databases"
+  tags: [ mariadb-docker ]
+  loop: "{{ mariadb_databases }}"
+  community.mysql.mysql_db:
+    login_host: 127.0.0.1
+    login_user: "root"
+    login_password: "{{ mariadb_root_pw }}"
+    name: "{{ item.name }}"
+    state: present
+
+- name: "Configure users"
+  tags: [ mariadb-docker ]
+  with_subelements:
+    - "{{ mariadb_users }}"
+    - priv
+  community.mysql.mysql_user:
+    login_host: 127.0.0.1
+    login_user: "root"
+    login_password: "{{ mariadb_root_pw }}"
+    name: "{{ item.0.name }}"
+    host: "{{ item.0.host }}"
+    password: "{{ item.0.password }}"
+    priv: "{{ item.1 }}"
+    append_privs: true
+    state: present
+    session_vars:
+      wsrep_on: false
+
+- name: "Check that MariaDB server responds to every user at 127.0.0.1 or localhost"
+  tags: [ mariadb-docker ]
+  loop: "{{ mariadb_users }}"
+  when: "item.host == 'localhost' or item.host == '127.0.0.1'"
+  community.mysql.mysql_info:
+    login_host: "{{ item.host }}"
+    login_user: "{{ item.name }}"
+    login_password: "{{ item.password }}"
+    filter: "version"

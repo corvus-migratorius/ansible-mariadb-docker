@@ -1,0 +1,14 @@
+---
+- name: Converge
+  hosts: all
+  roles:
+    - role: genlab.docker_ubuntu
+
+    - role: genlab.mariadb_docker
+      mariadb_project_name: "test"
+      mariadb_project_path: "/root/"
+      mariadb_project_owner: root
+      mariadb_project_group: root
+      mariadb_root_pw_path: "{{ role_path }}/molecule/default/secrets/root-pw.yaml"
+      mariadb_databases_path: "{{ role_path }}/molecule/default/secrets/databases.yaml"
+      mariadb_users_path: "{{ role_path }}/molecule/default/secrets/users.yaml"

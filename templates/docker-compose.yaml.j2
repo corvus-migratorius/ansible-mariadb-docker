@@ -1,0 +1,17 @@
+---
+version: "3"
+
+services:
+  mariadb-server:
+    image: mariadb:{{ mariadb_version }}
+    hostname: mariadb-server-{{ mariadb_project_name }}
+    container_name: mariadb-server-{{ mariadb_project_name }}
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: {{ mariadb_root_pw }}
+    network_mode: host
+    volumes:
+      - maria-db-{{ mariadb_project_name }}:/var/lib/mysql:rw
+
+volumes:
+  maria-db-{{ mariadb_project_name }}:

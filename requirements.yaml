@@ -1,0 +1,5 @@
+---
+# Ansible external role requirements
+roles:
+  - name: docker_ubuntu
+    src: https://github.com/corvus-migratorius/ansible-docker-ubuntu.git
