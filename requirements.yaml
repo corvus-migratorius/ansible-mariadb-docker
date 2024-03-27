@@ -1,5 +1,5 @@
 ---
 # Ansible external role requirements
 roles:
-  - name: docker_ubuntu
+  - name: genlab.docker_ubuntu
     src: https://github.com/corvus-migratorius/ansible-docker-ubuntu.git
